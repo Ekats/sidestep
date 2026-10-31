@@ -167,7 +167,7 @@ object SettingsUtils {
             "tiktok.com" -> listOf("tiktok.com", "www.tiktok.com", "v.tiktok.com", "vt.tiktok.com", "vm.tiktok.com")
             "x.com" -> listOf("x.com", "www.x.com", "twitter.com", "www.twitter.com")
             "reddit.com" -> listOf("reddit.com", "www.reddit.com", "old.reddit.com", "www.old.reddit.com", "redd.it")
-            "youtube.com" -> listOf("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be")
+            "youtube.com" -> listOf("youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be")
             "imdb.com" -> listOf("imdb.com", "www.imdb.com", "m.imdb.com")
             "medium.com" -> listOf("medium.com", "www.medium.com", "link.medium.com")
             "wikipedia.org" -> listOf("wikipedia.org", "www.wikipedia.org", "en.wikipedia.org")
