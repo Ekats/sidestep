@@ -207,6 +207,19 @@
                 <data android:host="www.maps.google.com" />
             </intent-filter>
 
+            <!-- Play Store app pages: the YouTube Music page (the YouTube Music website's fallback
+                 when the official app is missing) opens an installed YouTube Music client instead.
+                 All other Play Store links are passed on to the Play Store. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="play.google.com" />
+                <data android:pathPrefix="/store/apps/details" />
+            </intent-filter>
+
             <!-- Share Intent Filter -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

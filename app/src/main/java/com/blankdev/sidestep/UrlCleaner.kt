@@ -393,6 +393,24 @@ object UrlCleaner {
         return getHost(url) == "music.youtube.com"
     }
 
+    /** Check if a URL is a Play Store app page link (play.google.com/store/apps/details). */
+    fun isPlayStoreAppUrl(url: String?): Boolean {
+        if (url == null) return false
+        return try {
+            val uri = URI(url)
+            uri.host?.lowercase() == "play.google.com" && (uri.path ?: "").startsWith("/store/apps/details")
+        } catch (e: URISyntaxException) {
+            false
+        }
+    }
+
+    /** Check if a URL is the Play Store page of the official YouTube Music app. */
+    fun isPlayStoreYouTubeMusicUrl(url: String?): Boolean {
+        if (!isPlayStoreAppUrl(url)) return false
+        val query = try { URI(url).rawQuery } catch (e: URISyntaxException) { null } ?: return false
+        return query.split("&").any { it == "id=com.google.android.apps.youtube.music" }
+    }
+
     /**
      * Check if a URL is an IMDb URL
      */

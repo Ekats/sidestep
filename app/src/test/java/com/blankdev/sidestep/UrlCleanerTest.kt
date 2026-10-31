@@ -554,4 +554,20 @@ class UrlCleanerTest {
         val cleaned = UrlCleaner.cleanUrl("https://music.youtube.com/watch?v=abc123&list=RDAMVM1&si=TRACKER")
         assertEquals("https://music.youtube.com/watch?v=abc123&list=RDAMVM1", cleaned)
     }
+
+    @Test
+    fun testPlayStoreUrls() {
+        val ytm = "https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music"
+        assertTrue(UrlCleaner.isPlayStoreAppUrl(ytm))
+        assertTrue(UrlCleaner.isPlayStoreYouTubeMusicUrl(ytm))
+        assertTrue(UrlCleaner.isPlayStoreYouTubeMusicUrl("$ytm&hl=en&gl=EE"))
+        assertTrue(UrlCleaner.isPlayStoreYouTubeMusicUrl("https://play.google.com/store/apps/details?hl=en&id=com.google.android.apps.youtube.music"))
+
+        val other = "https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music.pwa"
+        assertTrue(UrlCleaner.isPlayStoreAppUrl(other))
+        assertFalse(UrlCleaner.isPlayStoreYouTubeMusicUrl(other))
+        assertFalse(UrlCleaner.isPlayStoreYouTubeMusicUrl("https://play.google.com/store/apps/details?id=org.mozilla.firefox"))
+        assertFalse(UrlCleaner.isPlayStoreAppUrl("https://play.google.com/store/books/details?id=x"))
+        assertFalse(UrlCleaner.isPlayStoreAppUrl("https://music.youtube.com/watch?v=x"))
+    }
 }

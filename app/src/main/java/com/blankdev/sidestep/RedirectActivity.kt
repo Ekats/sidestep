@@ -46,6 +46,16 @@ class RedirectActivity : AppCompatActivity() {
             else -> null
         }
 
+        if (url != null && Intent.ACTION_VIEW == action && UrlCleaner.isPlayStoreAppUrl(url)) {
+            val opened = SettingsUtils.openPlayStoreLink(applicationContext, url)
+            if (UrlCleaner.isPlayStoreYouTubeMusicUrl(url)) {
+                val msg = if (opened != null) "Sidestep → $opened" else "Sidestep: no YouTube Music app found"
+                Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
+            }
+            finish()
+            return
+        }
+
         if (url != null) {
             val sanitizedUrl = UrlCleaner.ensureProtocol(url)
             if (UrlCleaner.isValidAppUrl(sanitizedUrl)) {
@@ -159,8 +169,11 @@ class RedirectActivity : AppCompatActivity() {
     }
 
     private fun handleRedirectNavigation(context: android.content.Context, unshortenedUrl: String, finalUrl: String): Boolean {
-        if (UrlCleaner.isYouTubeMusicUrl(finalUrl) && SettingsUtils.openInNonBrowserApp(context, finalUrl)) {
-            return true
+        if (UrlCleaner.isYouTubeMusicUrl(finalUrl)) {
+            val app = SettingsUtils.openInMusicApp(context, finalUrl)
+            val msg = if (app != null) "Sidestep → $app" else "Sidestep: no YouTube Music app found, opening browser"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            if (app != null) return true
         }
         if (SettingsUtils.shouldOpenInWebView(context, unshortenedUrl)) {
             val webIntent = Intent(context, WebViewActivity::class.java).apply {

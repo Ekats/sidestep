@@ -285,53 +285,123 @@ object SettingsUtils {
         }
     }
 
-    /**
-     * Opens [url] in an installed app that handles it, skipping Sidestep itself and web browsers
-     * (e.g. a YouTube Music link goes to Meld / YouTube Music instead of a browser).
-     * Uses the user's default app if one is set, otherwise the only candidate, otherwise a chooser.
-     * Returns false if no such app is installed, so the caller can fall back to normal handling.
-     */
-    fun openInNonBrowserApp(context: Context, url: String): Boolean {
-        val pm = context.packageManager
-        val flags = android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
-        val viewIntent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        val genericWebIntent = Intent(Intent.ACTION_VIEW, "https://example.com/".toUri())
+    private const val YOUTUBE_MUSIC_PACKAGE = "com.google.android.apps.youtube.music"
+    private const val PLAY_STORE_PACKAGE = "com.android.vending"
+    // A link every YouTube Music client accepts; used to discover installed music apps
+    private const val MUSIC_APP_PROBE_URL = "https://music.youtube.com/watch?v=dQw4w9WgXcQ"
+
+    private fun browsableViewIntent(url: String) = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    private fun browserPackages(context: Context): Set<String> {
+        val generic = Intent(Intent.ACTION_VIEW, "https://example.com/".toUri())
             .addCategory(Intent.CATEGORY_BROWSABLE)
-        val browsers = pm.queryIntentActivities(genericWebIntent, flags)
+        return context.packageManager
+            .queryIntentActivities(generic, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
             .map { it.activityInfo.packageName }.toSet()
+    }
 
-        val handlers = pm.queryIntentActivities(viewIntent, flags)
-        val apps = handlers.filter {
-            val pkg = it.activityInfo.packageName
-            pkg != context.packageName && pkg !in browsers
-        }
-        if (apps.isEmpty()) return false
+    /** Installed apps (not Sidestep, not browsers) that handle [url]. */
+    private fun nonBrowserHandlers(context: Context, url: String): List<android.content.pm.ResolveInfo> {
+        val browsers = browserPackages(context)
+        return context.packageManager
+            .queryIntentActivities(browsableViewIntent(url), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            .filter {
+                val pkg = it.activityInfo.packageName
+                pkg != context.packageName && pkg !in browsers
+            }
+            .distinctBy { it.activityInfo.packageName }
+    }
 
-        val defaultPkg = pm.resolveActivity(viewIntent, flags)?.activityInfo?.packageName
-        val chosen = apps.firstOrNull { it.activityInfo.packageName == defaultPkg }
-            ?: apps.singleOrNull()
+    /** Prefers third-party clients (e.g. Meld) over the official YouTube Music app. */
+    private fun preferThirdParty(apps: List<android.content.pm.ResolveInfo>) =
+        apps.firstOrNull { it.activityInfo.packageName != YOUTUBE_MUSIC_PACKAGE } ?: apps.firstOrNull()
+
+    /**
+     * Opens a YouTube Music [url] in an installed music app (e.g. Meld), never a browser.
+     * Apps that declare support for the exact link are preferred (default app first, otherwise a
+     * chooser if there are several). If none does, the link is sent explicitly to any installed
+     * YouTube Music client. Returns the opened app's name, or null if no music app is installed.
+     */
+    fun openInMusicApp(context: Context, url: String): String? {
+        val pm = context.packageManager
+        val viewIntent = browsableViewIntent(url)
+        val direct = nonBrowserHandlers(context, url)
+        val pool = direct.ifEmpty { nonBrowserHandlers(context, MUSIC_APP_PROBE_URL) }
+        if (pool.isEmpty()) return null
+
+        val defaultPkg = pm.resolveActivity(viewIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName
+        val chosen = pool.firstOrNull { it.activityInfo.packageName == defaultPkg }
+            ?: pool.singleOrNull()
+            ?: if (direct.isEmpty()) preferThirdParty(pool) else null
 
         return try {
             if (chosen != null) {
                 viewIntent.setClassName(chosen.activityInfo.packageName, chosen.activityInfo.name)
                 context.startActivity(viewIntent)
+                chosen.loadLabel(pm).toString()
             } else {
-                val excluded = handlers.filterNot { it in apps }.map {
-                    android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name)
-                }.toTypedArray()
+                val directPkgs = direct.map { it.activityInfo.packageName }.toSet()
+                val excluded = pm.queryIntentActivities(viewIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                    .filter { it.activityInfo.packageName !in directPkgs }
+                    .map { android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name) }
+                    .toTypedArray()
                 val chooser = Intent.createChooser(viewIntent, null).apply {
                     putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, excluded)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(chooser)
+                "app chooser"
             }
-            true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "No app could open $url", e)
-            false
+            null
+        }
+    }
+
+    /**
+     * Handles a Play Store app page link. The YouTube Music page (which the YouTube Music website
+     * falls back to when the official app is missing) opens an installed YouTube Music client
+     * instead. Any other Play Store link is passed on to the Play Store (or another handler).
+     * Returns a short description of what was opened, or null if nothing could open it.
+     */
+    fun openPlayStoreLink(context: Context, url: String): String? {
+        val pm = context.packageManager
+        if (UrlCleaner.isPlayStoreYouTubeMusicUrl(url)) {
+            val app = nonBrowserHandlers(context, MUSIC_APP_PROBE_URL)
+                .filter { it.activityInfo.packageName != YOUTUBE_MUSIC_PACKAGE }
+                .let { preferThirdParty(it) }
+            val launch = app?.let { pm.getLaunchIntentForPackage(it.activityInfo.packageName) }
+            if (app != null && launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                return try {
+                    context.startActivity(launch)
+                    app.loadLabel(pm).toString()
+                } catch (e: ActivityNotFoundException) {
+                    Log.w(TAG, "Could not launch music app", e)
+                    null
+                }
+            }
+        }
+
+        // Pass through: Play Store app if installed, otherwise anything but Sidestep
+        val intent = browsableViewIntent(url)
+        val handlers = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            .filter { it.activityInfo.packageName != context.packageName }
+        val target = handlers.firstOrNull { it.activityInfo.packageName == PLAY_STORE_PACKAGE }
+            ?: handlers.firstOrNull { it.activityInfo.packageName !in browserPackages(context) }
+            ?: handlers.firstOrNull()
+            ?: return null
+        return try {
+            intent.setClassName(target.activityInfo.packageName, target.activityInfo.name)
+            context.startActivity(intent)
+            target.loadLabel(pm).toString()
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app could open $url", e)
+            null
         }
     }
 
