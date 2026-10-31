@@ -207,6 +207,18 @@
                 <data android:host="www.maps.google.com" />
             </intent-filter>
 
+            <!-- Generic web links: lets Sidestep be chosen as the default browser app, so it sees
+                 every link (including ones apps send straight to the browser). Links Sidestep
+                 doesn't handle are forwarded unchanged to a real browser. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+
             <!-- Play Store app pages: the YouTube Music page (the YouTube Music website's fallback
                  when the official app is missing) opens an installed YouTube Music client instead.
                  All other Play Store links are passed on to the Play Store. -->

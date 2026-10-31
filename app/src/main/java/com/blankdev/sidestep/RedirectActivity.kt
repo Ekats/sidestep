@@ -56,6 +56,15 @@ class RedirectActivity : AppCompatActivity() {
             return
         }
 
+        // Default-browser mode: links Sidestep doesn't handle go straight to a real browser, untouched
+        if (url != null && Intent.ACTION_VIEW == action &&
+            !BrowserPassthrough.shouldHandle(applicationContext, url) &&
+            BrowserPassthrough.forwardToBrowser(applicationContext, intent)
+        ) {
+            finish()
+            return
+        }
+
         if (url != null) {
             val sanitizedUrl = UrlCleaner.ensureProtocol(url)
             if (UrlCleaner.isValidAppUrl(sanitizedUrl)) {
@@ -194,9 +203,9 @@ class RedirectActivity : AppCompatActivity() {
             val selfHandler = handlers.find { it.activityInfo.packageName == context.packageName }
             
             if (selfHandler != null) {
-                val otherHandler = handlers.firstOrNull { it.activityInfo.packageName != context.packageName }
+                val otherHandler = BrowserPassthrough.pickExternalHandler(context, finalUrl)
                 if (otherHandler != null) {
-                    redirectIntent.setPackage(otherHandler.activityInfo.packageName)
+                    redirectIntent.setClassName(otherHandler.activityInfo.packageName, otherHandler.activityInfo.name)
                     context.startActivity(redirectIntent)
                     return true
                 } else {

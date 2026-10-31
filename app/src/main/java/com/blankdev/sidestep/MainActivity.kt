@@ -863,9 +863,9 @@ class MainActivity : AppCompatActivity() {
         val selfHandler = handlers.find { it.activityInfo.packageName == packageName }
         
         if (selfHandler != null) {
-            val otherHandler = handlers.firstOrNull { it.activityInfo.packageName != packageName }
+            val otherHandler = BrowserPassthrough.pickExternalHandler(this, url)
             if (otherHandler != null) {
-                redirectIntent.setPackage(otherHandler.activityInfo.packageName)
+                redirectIntent.setClassName(otherHandler.activityInfo.packageName, otherHandler.activityInfo.name)
                 startActivity(redirectIntent)
             } else {
                 // If we are the only handler, use WebView
