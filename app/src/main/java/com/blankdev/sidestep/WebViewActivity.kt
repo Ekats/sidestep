@@ -48,9 +48,14 @@ class WebViewActivity : AppCompatActivity() {
                     if (isFinishing || isDestroyed) return true
                     
                     val url = request?.url?.toString() ?: return false
+                    // YouTube Music pages go to a music app (e.g. Meld)
+                    if (routeMusicLink(url)) return true
                     // Keep http/https in WebView
                     if (url.startsWith("http://") || url.startsWith("https://")) {
                         return false 
+                    }
+                    if (url.startsWith("intent:")) {
+                        return handleIntentScheme(url)
                     }
                     // Let system handle other schemes (mailto, intent, etc.)
                     return try {
@@ -114,11 +119,59 @@ class WebViewActivity : AppCompatActivity() {
         }
         
         currentUrl = intent?.getStringExtra(EXTRA_URL)
+        if (currentUrl != null && routeMusicLink(currentUrl!!)) return
         if (currentUrl != null && UrlCleaner.isValidAppUrl(currentUrl)) {
             val headers = mapOf("X-Requested-With" to packageName)
             webView.loadUrl(currentUrl!!, headers)
         } else {
             finish()
+        }
+    }
+
+    /**
+     * Sends YouTube Music links back through Sidestep's normal processing (tracking removal,
+     * @handle resolution, hand-off to a music app such as Meld) instead of loading them here.
+     */
+    private fun routeMusicLink(url: String): Boolean {
+        // Without a music app, Sidestep would just send it back here: keep it in the WebView
+        if (!UrlCleaner.isYouTubeMusicUrl(url) || !SettingsUtils.hasMusicApp(this)) return false
+        val route = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+            setClass(this@WebViewActivity, RedirectActivity::class.java)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(route)
+        finish()
+        return true
+    }
+
+    /**
+     * Handles intent:// links from web pages. Links aimed at the official YouTube Music app
+     * (which the YouTube Music website uses to push its app) go to an installed music client
+     * instead; otherwise the target app is opened if installed, else the page's fallback URL is
+     * loaded here rather than jumping to the Play Store.
+     */
+    private fun handleIntentScheme(url: String): Boolean {
+        val parsed = try {
+            Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+        } catch (e: java.net.URISyntaxException) {
+            Log.w(TAG, "Bad intent URI: $url", e)
+            return true
+        }
+        val data = parsed.dataString
+        if (data != null && routeMusicLink(data)) return true
+        // Only open explicit, safe targets: no component, browsable only
+        parsed.component = null
+        parsed.selector = null
+        parsed.addCategory(Intent.CATEGORY_BROWSABLE)
+        return try {
+            startActivity(parsed)
+            true
+        } catch (e: ActivityNotFoundException) {
+            val fallback = parsed.getStringExtra("browser_fallback_url")
+            if (fallback != null && UrlCleaner.isValidAppUrl(fallback) && !UrlCleaner.isPlayStoreAppUrl(fallback)) {
+                webView.loadUrl(fallback)
+            }
+            true
         }
     }
 

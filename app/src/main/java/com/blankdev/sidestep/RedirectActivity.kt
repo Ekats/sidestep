@@ -178,11 +178,8 @@ class RedirectActivity : AppCompatActivity() {
     }
 
     private fun handleRedirectNavigation(context: android.content.Context, unshortenedUrl: String, finalUrl: String): Boolean {
-        if (UrlCleaner.isYouTubeMusicUrl(finalUrl)) {
-            val app = SettingsUtils.openInMusicApp(context, finalUrl)
-            val msg = if (app != null) "Sidestep → $app" else "Sidestep: no YouTube Music app found, opening browser"
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-            if (app != null) return true
+        if (SettingsUtils.handOffMusicLink(context, finalUrl)) {
+            return true
         }
         if (SettingsUtils.shouldOpenInWebView(context, unshortenedUrl)) {
             val webIntent = Intent(context, WebViewActivity::class.java).apply {

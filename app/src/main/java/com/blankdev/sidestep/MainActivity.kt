@@ -826,6 +826,13 @@ class MainActivity : AppCompatActivity() {
     private fun navigateToUrl(redirectUrl: String, originalHostUrl: String) {
         try {
             val finalRedirectUrl = UrlCleaner.ensureProtocol(redirectUrl)
+
+            // YouTube Music links go to a music app (e.g. Meld), never a WebView / Custom Tab,
+            // where the YouTube Music page would redirect to the Play Store
+            if (SettingsUtils.handOffMusicLink(this, finalRedirectUrl)) {
+                incrementSidestepCount()
+                return
+            }
             
             // Determine if we should use in-app WebView
             if (SettingsUtils.shouldOpenInWebView(this, originalHostUrl)) {
@@ -852,7 +859,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchExternalIntent(url: String) {
-        if (UrlCleaner.isYouTubeMusicUrl(url) && SettingsUtils.openInMusicApp(this, url) != null) {
+        if (SettingsUtils.handOffMusicLink(this, url)) {
             return
         }
         val redirectIntent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
@@ -1435,8 +1442,10 @@ class MainActivity : AppCompatActivity() {
         val effectiveProcessedUrl = SettingsUtils.resolveTargetUrl(this, entry.cleanedUrl, contentUrl)
         if (effectiveProcessedUrl != displayCleaned) {
             addDetailRow(getString(R.string.label_sidestepped), effectiveProcessedUrl, R.drawable.ic_open_in_new) {
-                 val intent = Intent(Intent.ACTION_VIEW, effectiveProcessedUrl.toUri())
-                 startActivity(intent)
+                 if (!SettingsUtils.handOffMusicLink(this, effectiveProcessedUrl)) {
+                     val intent = Intent(Intent.ACTION_VIEW, effectiveProcessedUrl.toUri())
+                     startActivity(intent)
+                 }
             }
         }
 

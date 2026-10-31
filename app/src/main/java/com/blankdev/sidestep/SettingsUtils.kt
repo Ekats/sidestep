@@ -362,6 +362,23 @@ object SettingsUtils {
         }
     }
 
+    /** Whether any YouTube Music client (other than a browser or Sidestep) is installed. */
+    fun hasMusicApp(context: Context): Boolean =
+        nonBrowserHandlers(context, MUSIC_APP_PROBE_URL).isNotEmpty()
+
+    /**
+     * If [url] is a YouTube Music link, opens it in an installed music app (e.g. Meld) and shows
+     * where it went. Returns true if handled; false if it isn't a YouTube Music link or no music
+     * app is installed (the caller then continues with its normal handling).
+     */
+    fun handOffMusicLink(context: Context, url: String): Boolean {
+        if (!UrlCleaner.isYouTubeMusicUrl(url)) return false
+        val app = openInMusicApp(context, url)
+        val msg = if (app != null) "Sidestep → $app" else "Sidestep: no YouTube Music app found"
+        android.widget.Toast.makeText(context.applicationContext, msg, android.widget.Toast.LENGTH_SHORT).show()
+        return app != null
+    }
+
     /**
      * Handles a Play Store app page link. The YouTube Music page (which the YouTube Music website
      * falls back to when the official app is missing) opens an installed YouTube Music client
@@ -411,6 +428,7 @@ object SettingsUtils {
     }
 
     fun openUrlWithCustomTabs(context: Context, url: String) {
+        if (handOffMusicLink(context, url)) return
         try {
             val builder = CustomTabsIntent.Builder()
             
