@@ -783,7 +783,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             unshortenedUrl
         }
-        val redirectUrl = SettingsUtils.resolveTargetUrl(this, cleanedUrl, unshortenedUrl)
+        val redirectUrl = YouTubeHandleResolver.toAppFriendlyUrl(
+            SettingsUtils.resolveTargetUrl(this, cleanedUrl, unshortenedUrl)
+        )
         
         return UrlProcessingResult(unshortenedUrl, cleanedUrl, redirectUrl, initialTitle)
     }

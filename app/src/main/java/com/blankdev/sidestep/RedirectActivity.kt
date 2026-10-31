@@ -85,7 +85,9 @@ class RedirectActivity : AppCompatActivity() {
                 val unshortenedUrl = unshortenUrl(appContext, url)
                 
                 // 2. Clean & Resolve Target
-                val (cleanedUrl, finalUrl) = resolveEffectiveUrl(appContext, unshortenedUrl)
+                val (cleanedUrl, resolvedUrl) = resolveEffectiveUrl(appContext, unshortenedUrl)
+                // music.youtube.com/@handle -> /channel/UC... so music apps (e.g. Meld) can open it
+                val finalUrl = YouTubeHandleResolver.toAppFriendlyUrl(resolvedUrl)
 
                 // 3. Navigate
                 val wasNavigated = if (isImmediate) {
