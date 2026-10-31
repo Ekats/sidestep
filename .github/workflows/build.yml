@@ -8,6 +8,7 @@ on:
       - '.gitignore'
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -32,3 +33,9 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidestep-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
