@@ -539,4 +539,19 @@ class UrlCleanerTest {
         val preCleaned = UrlCleaner.stripTrackingParams(url)
         assertEquals("https://www.urbandictionary.com/define.php?term=sidestep", preCleaned)
     }
+
+    @Test
+    fun testIsYouTubeMusicUrl() {
+        assertTrue(UrlCleaner.isYouTubeMusicUrl("https://music.youtube.com/watch?v=abc123"))
+        assertTrue(UrlCleaner.isYouTubeMusicUrl("https://MUSIC.youtube.com/playlist?list=PL1"))
+        assertFalse(UrlCleaner.isYouTubeMusicUrl("https://www.youtube.com/watch?v=abc123"))
+        assertFalse(UrlCleaner.isYouTubeMusicUrl("https://youtu.be/abc123"))
+        assertFalse(UrlCleaner.isYouTubeMusicUrl(null))
+    }
+
+    @Test
+    fun testCleanUrl_youTubeMusicKeepsHostAndStripsTracking() {
+        val cleaned = UrlCleaner.cleanUrl("https://music.youtube.com/watch?v=abc123&list=RDAMVM1&si=TRACKER")
+        assertEquals("https://music.youtube.com/watch?v=abc123&list=RDAMVM1", cleaned)
+    }
 }

@@ -850,6 +850,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchExternalIntent(url: String) {
+        if (UrlCleaner.isYouTubeMusicUrl(url) && SettingsUtils.openInNonBrowserApp(this, url)) {
+            return
+        }
         val redirectIntent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }

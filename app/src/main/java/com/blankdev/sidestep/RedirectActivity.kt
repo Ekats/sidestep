@@ -157,6 +157,9 @@ class RedirectActivity : AppCompatActivity() {
     }
 
     private fun handleRedirectNavigation(context: android.content.Context, unshortenedUrl: String, finalUrl: String): Boolean {
+        if (UrlCleaner.isYouTubeMusicUrl(finalUrl) && SettingsUtils.openInNonBrowserApp(context, finalUrl)) {
+            return true
+        }
         if (SettingsUtils.shouldOpenInWebView(context, unshortenedUrl)) {
             val webIntent = Intent(context, WebViewActivity::class.java).apply {
                 putExtra(WebViewActivity.EXTRA_URL, finalUrl)

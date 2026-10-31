@@ -385,6 +385,15 @@ object UrlCleaner {
     }
 
     /**
+     * Check if a URL is a YouTube Music URL (music.youtube.com).
+     * These are handed off to an installed music app instead of a YouTube frontend.
+     */
+    fun isYouTubeMusicUrl(url: String?): Boolean {
+        if (url == null) return false
+        return getHost(url) == "music.youtube.com"
+    }
+
+    /**
      * Check if a URL is an IMDb URL
      */
     fun isImdbUrl(url: String?): Boolean {

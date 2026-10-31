@@ -285,6 +285,56 @@ object SettingsUtils {
         }
     }
 
+    /**
+     * Opens [url] in an installed app that handles it, skipping Sidestep itself and web browsers
+     * (e.g. a YouTube Music link goes to Meld / YouTube Music instead of a browser).
+     * Uses the user's default app if one is set, otherwise the only candidate, otherwise a chooser.
+     * Returns false if no such app is installed, so the caller can fall back to normal handling.
+     */
+    fun openInNonBrowserApp(context: Context, url: String): Boolean {
+        val pm = context.packageManager
+        val flags = android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        val viewIntent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val genericWebIntent = Intent(Intent.ACTION_VIEW, "https://example.com/".toUri())
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+        val browsers = pm.queryIntentActivities(genericWebIntent, flags)
+            .map { it.activityInfo.packageName }.toSet()
+
+        val handlers = pm.queryIntentActivities(viewIntent, flags)
+        val apps = handlers.filter {
+            val pkg = it.activityInfo.packageName
+            pkg != context.packageName && pkg !in browsers
+        }
+        if (apps.isEmpty()) return false
+
+        val defaultPkg = pm.resolveActivity(viewIntent, flags)?.activityInfo?.packageName
+        val chosen = apps.firstOrNull { it.activityInfo.packageName == defaultPkg }
+            ?: apps.singleOrNull()
+
+        return try {
+            if (chosen != null) {
+                viewIntent.setClassName(chosen.activityInfo.packageName, chosen.activityInfo.name)
+                context.startActivity(viewIntent)
+            } else {
+                val excluded = handlers.filterNot { it in apps }.map {
+                    android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name)
+                }.toTypedArray()
+                val chooser = Intent.createChooser(viewIntent, null).apply {
+                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, excluded)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(chooser)
+            }
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app could open $url", e)
+            false
+        }
+    }
+
     fun shouldUseCustomTabs(context: Context): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         return prefs.getBoolean(SettingsActivity.KEY_USE_CUSTOM_TABS, false)
@@ -500,6 +550,11 @@ object SettingsUtils {
             appliedCustom = true
         }
 
+
+        // YouTube Music links keep their domain so they can be handed off to a music app
+        if (!appliedCustom && UrlCleaner.isYouTubeMusicUrl(unshortenedUrl)) {
+            return redirectUrl
+        }
 
         if (!appliedCustom) {
             val domainMapping = listOf(
